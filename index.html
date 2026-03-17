@@ -475,22 +475,23 @@
           </div>
 
           <!-- Quick Chips -->
-          <div class="flex gap-2 px-4 pb-2 mt-auto overflow-x-auto" id="ai-quick-chips">
-            <button class="chip">📊 Analyze my GPA</button>
-            <button class="chip">🎯 How to reach 3.5?</button>
-            <button class="chip">📚 Study strategies</button>
-            <button class="chip">⚠️ What are my weak spots?</button>
-            <button class="chip">🗺️ Plan next semester</button>
+          <div class="ai-chips-container" id="ai-quick-chips">
+            <button class="chip" data-msg="حلل معدلي وأعطيني رأيك">📊 حلل معدلي</button>
+            <button class="chip" data-msg="كيف أوصل لمعدل 3.5؟">🎯 هدفي 3.5</button>
+            <button class="chip" data-msg="Analyze my GPA and give me honest feedback">📈 Analyze GPA</button>
+            <button class="chip" data-msg="What study strategies help improve GPA?">📚 Study Tips</button>
+            <button class="chip" data-msg="ما هي أضعف نقاطي الأكاديمية وكيف أحسنها؟">⚠️ نقاط ضعفي</button>
+            <button class="chip" data-msg="Help me plan next semester to reach my target GPA">🗺️ Plan Semester</button>
           </div>
 
           <!-- Input Area -->
           <div class="chat-input-area">
-            <input type="text" id="ai-input" class="form-input flex-1" data-i18n-placeholder="ai_placeholder" placeholder="Ask me anything about your GPA or study plans...">
-            <button class="btn btn-primary rounded-full p-3" id="ai-send-btn" aria-label="Send Message" title="Send Message">
+            <input type="text" id="ai-input" class="form-input flex-1" placeholder="اسألني أي شيء عن معدلك أو خطتك الأكاديمية...">
+            <button class="btn btn-primary ai-send-btn" id="ai-send-btn" aria-label="Send Message" title="Send Message">
                <i data-lucide="send"></i>
             </button>
           </div>
-          <div class="text-center pb-2 text-xs text-muted bg-black-20">Powered by Claude AI</div>
+          <div class="ai-powered-label">⚡ Powered by Groq · Llama 3.3 70B · Free</div>
         </div>
       </section>
 
@@ -521,14 +522,18 @@
 
             <div class="settings-group-title" data-i18n="ai_settings">AI Advisor Settings</div>
             <div class="settings-group mb-4">
-              <div class="settings-item">
-                <div class="settings-item-info flex-1">
+              <div class="settings-item settings-item-col">
+                <div class="settings-item-info w-full">
                   <i data-lucide="key" class="text-brand-secondary"></i>
                   <div class="flex-1">
-                    <div class="settings-item-label">Gemini API Key</div>
-                    <input type="password" id="settings-gemini-key" class="form-input mt-2 text-xs" placeholder="AI Key (Free at aistudio.google.com)">
+                    <div class="settings-item-label">Groq API Key <span class="badge badge-green badge-free-label">Free</span></div>
+                    <div class="text-xs text-muted mt-1">اعمل حساب مجاني واحصل على Key من <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer" class="groq-link">console.groq.com</a></div>
+                    <input type="password" id="settings-groq-key" class="form-input mt-2 text-xs" placeholder="gsk_xxxxxxxxxxxxxxxxxxxxxxxx">
                   </div>
                 </div>
+                <button id="btn-save-groq-key" class="btn btn-primary btn-sm w-full justify-center">
+                  <i data-lucide="save"></i> حفظ الـ API Key
+                </button>
               </div>
             </div>
 

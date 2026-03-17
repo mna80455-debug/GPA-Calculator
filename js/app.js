@@ -941,37 +941,11 @@ const App = (() => {
     }
   }
 
-  /* ==================== AI Advisor (Extra) ==================== */
+  /* ==================== AI Advisor ==================== */
   function initAI() {
-    const input = document.getElementById('ai-input');
-    const sendBtn = document.getElementById('ai-send-btn');
-    const history = document.getElementById('ai-chat-history');
-
-    if (!input || !sendBtn || !history) return;
-
-    sendBtn.addEventListener('click', () => {
-      const msg = input.value.trim();
-      if (!msg) return;
-
-      appendMsg('user', msg);
-      input.value = '';
-
-      // Mock AI Analysis
-      setTimeout(() => {
-        const data = Storage.get();
-        let response = "تحليل ذكي: بمعدل " + data.cumulative_gpa.toFixed(2) + "، أنت في وضع مستقر. ";
-        if (data.cumulative_gpa < 3.0) response += "أنصحك بتقليل ساعات الفصل القادم للتركيز أكثر.";
-        else response += "استمر في هذا الأداء الرائع!";
-        appendMsg('ai', response);
-      }, 800);
-    });
-
-    function appendMsg(role, text) {
-      const div = document.createElement('div');
-      div.className = `chat-msg ${role} animate-fade-in-up`;
-      div.innerHTML = `<div class="msg-bubble p-3 rounded-lg ${role === 'user' ? 'bg-brand-primary text-white ml-auto' : 'bg-black-20 text-text-secondary mr-auto'} max-w-[80%] mb-3">${text}</div>`;
-      history.appendChild(div);
-      history.scrollTop = history.scrollHeight;
+    // The AIAdvisor module handles everything
+    if (typeof AIAdvisor !== 'undefined') {
+      AIAdvisor.init();
     }
   }
 
@@ -1021,14 +995,20 @@ const App = (() => {
     // Wipe
     document.getElementById('btn-nuke-data')?.addEventListener('click', handleNukeData);
 
-    // AI Advisor Key Sync
-    const elApiKey = document.getElementById('settings-gemini-key');
-    if (elApiKey) {
-      elApiKey.value = localStorage.getItem('gradeiq_gemini_key') || '';
-      elApiKey.addEventListener('input', (e) => {
-        localStorage.setItem('gradeiq_gemini_key', e.target.value);
-      });
+    // Groq API Key — Load & Save
+    const elGroqKey = document.getElementById('settings-groq-key');
+    if (elGroqKey) {
+      elGroqKey.value = localStorage.getItem('gradeiq_groq_key') || '';
     }
+    document.getElementById('btn-save-groq-key')?.addEventListener('click', () => {
+      const key = elGroqKey?.value?.trim() || '';
+      if (!key) {
+        UI.showToast('⚠️ الصق الـ API Key أولاً ثم احفظ', 'warning');
+        return;
+      }
+      localStorage.setItem('gradeiq_groq_key', key);
+      UI.showToast('✅ تم حفظ API Key بنجاح! يمكنك استخدام AI Advisor الآن', 'success');
+    });
 
     // Export Listeners
     document.getElementById('history-export-csv')?.addEventListener('click', () => {

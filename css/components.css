@@ -973,3 +973,149 @@ html[dir="rtl"] .comparison-divider::after { content: "←"; }
   color: var(--text-secondary);
   font-weight: 500;
 }
+
+/* ============================================
+   AI Chat — Improved UI
+   ============================================ */
+
+/* AI bubble — improved readability */
+.chat-bubble.ai {
+  align-self: flex-start;
+  background: linear-gradient(135deg, rgba(13,148,136,0.12), rgba(45,212,191,0.08));
+  border: 1px solid rgba(45, 212, 191, 0.2);
+  color: var(--text-primary);
+  border-bottom-left-radius: 4px;
+  line-height: 1.65;
+}
+
+.chat-bubble.ai p { margin-bottom: 0.5rem; }
+.chat-bubble.ai p:last-child { margin-bottom: 0; }
+.chat-bubble.ai strong { color: var(--brand-secondary); font-weight: 700; }
+.chat-bubble.ai em { color: var(--text-secondary); }
+.chat-bubble.ai code {
+  background: rgba(255,255,255,0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: var(--font-number);
+  font-size: 0.9em;
+}
+
+/* Typing indicator dots */
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 0;
+}
+
+.typing-indicator span {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand-secondary);
+  animation: typingBounce 1.2s ease-in-out infinite;
+}
+
+.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typingBounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30% { transform: translateY(-8px); opacity: 1; }
+}
+
+/* AI Chips Container */
+.ai-chips-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-subtle);
+  background: rgba(0,0,0,0.15);
+}
+
+/* Improved chip design */
+.chip {
+  padding: 6px 14px;
+  background: rgba(13, 148, 136, 0.1);
+  border: 1px solid rgba(45, 212, 191, 0.25);
+  border-radius: 99px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.chip:hover {
+  background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary));
+  border-color: transparent;
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--brand-glow);
+}
+
+/* AI Send Button */
+.ai-send-btn {
+  padding: 10px 18px !important;
+  border-radius: var(--radius-lg) !important;
+  transition: all 0.2s !important;
+}
+
+.ai-send-btn.sending {
+  opacity: 0.7;
+  animation: sendingPulse 1s ease-in-out infinite;
+}
+
+@keyframes sendingPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(0.95); box-shadow: 0 0 20px var(--brand-glow); }
+}
+
+/* Powered by label */
+.ai-powered-label {
+  text-align: center;
+  padding: 6px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  background: rgba(0,0,0,0.15);
+  letter-spacing: 0.4px;
+}
+
+/* Settings AI section - column layout */
+.settings-item-col {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.settings-item-col .settings-item-info {
+  width: 100%;
+}
+
+/* Groq key link in settings */
+.groq-link {
+  color: var(--brand-secondary);
+  text-decoration: underline;
+}
+
+/* Badge free label in settings */
+.badge-free-label {
+  font-size: 10px;
+  vertical-align: middle;
+}
+
+/* Btn small */
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 0.85rem;
+}
+
+/* list-num in AI markdown */
+.list-num {
+  font-weight: 700;
+  color: var(--brand-secondary);
+}
+

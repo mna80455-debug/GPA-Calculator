@@ -1,5 +1,6 @@
 /* ============================================
    GradeIQ — AI Academic Advisor Module
+   Powered by Groq (Free API - llama-3.3-70b)
    ============================================ */
 
 const AIAdvisor = (function() {
@@ -14,7 +15,7 @@ const AIAdvisor = (function() {
   };
 
   function init() {
-    if (!els.sendBtn) return; // Prevent errors if not found
+    if (!els.sendBtn) return;
 
     // Load history
     const saved = localStorage.getItem('gradeiq_chat');
@@ -40,7 +41,7 @@ const AIAdvisor = (function() {
     // Quick chips
     document.querySelectorAll('.chip').forEach(chip => {
       chip.addEventListener('click', () => {
-        els.input.value = chip.textContent;
+        els.input.value = chip.dataset.msg || chip.textContent;
         handleSend();
       });
     });
@@ -49,25 +50,52 @@ const AIAdvisor = (function() {
   function renderWelcomeMessage() {
     if (!els.chatHistory) return;
     const isAr = currentLang === 'ar';
-    const msg = isAr 
-      ? "أهلاً بك في مستشار الذكاء الاصطناعي! كيف يمكنني مساعدتك في تخطيط مسارك الأكاديمي اليوم؟" 
-      : "Welcome to your AI Advisor! How can I help you plan your academic journey today?";
-    
+    const msg = isAr
+      ? "أهلاً بك! 👋 أنا مستشارك الأكاديمي الذكي. يمكنني تحليل معدلك، اقتراح استراتيجيات للتحسين، والمساعدة في التخطيط للفصول القادمة. كيف يمكنني مساعدتك اليوم؟"
+      : "Welcome! 👋 I'm your AI Academic Advisor. I can analyze your GPA, suggest improvement strategies, and help you plan future semesters. How can I help you today?";
     addBubble(msg, 'ai');
+  }
+
+  function renderHistory() {
+    if (!els.chatHistory) return;
+    els.chatHistory.innerHTML = '';
+    conversationHistory.forEach(msg => {
+      if (msg.role === 'user') addBubble(msg.content, 'user');
+      else if (msg.role === 'assistant') addBubble(msg.content, 'ai');
+    });
+  }
+
+  // Simple Markdown → HTML renderer
+  function renderMarkdown(text) {
+    return text
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/`(.+?)`/g, '<code>$1</code>')
+      .replace(/\n\n/g, '</p><p>')
+      .replace(/\n/g, '<br>')
+      .replace(/^/, '<p>')
+      .replace(/$/, '</p>')
+      .replace(/• /g, '&#8226; ')
+      .replace(/^\d+\. /gm, (m) => `<span class="list-num">${m}</span>`);
   }
 
   function addBubble(text, sender, isLoading = false) {
     if (!els.chatHistory) return;
 
     const div = document.createElement('div');
-    div.className = `chat-bubble ${sender} ${isLoading ? 'loading' : ''}`;
-    
+    div.className = `chat-bubble ${sender}${isLoading ? ' loading' : ''}`;
+
     if (isLoading) {
-      div.innerHTML = `<span class="typing-ind"><span>.</span><span>.</span><span>.</span></span>`;
+      div.innerHTML = `
+        <div class="typing-indicator">
+          <span></span><span></span><span></span>
+        </div>`;
+    } else if (sender === 'ai') {
+      div.innerHTML = renderMarkdown(text);
     } else {
       div.textContent = text;
     }
-    
+
     els.chatHistory.appendChild(div);
     els.chatHistory.scrollTop = els.chatHistory.scrollHeight;
     return div;
@@ -77,83 +105,90 @@ const AIAdvisor = (function() {
     if (semesters.length < 2) return 'Stable';
     const last = semesters[semesters.length - 1].semester_gpa;
     const prev = semesters[semesters.length - 2].semester_gpa;
-    return last > prev ? 'Improving' : (last < prev ? 'Declining' : 'Stable');
+    return last > prev ? 'Improving 📈' : (last < prev ? 'Declining 📉' : 'Stable ➡️');
   }
 
   function buildSystemPrompt() {
-    const data = Storage.getData() || { cumulative_gpa: 0, total_credit_hours: 0, semesters: [], settings: { university_system: 'standard' } };
+    const data = Storage.getData ? Storage.getData() : (Storage.get ? Storage.get() : { cumulative_gpa: 0, total_credits: 0, semesters: [], settings: { university_system: 'delta' } });
     const isAr = currentLang === 'ar';
-    
-    const lastGpa = data.semesters.length > 0 ? data.semesters[data.semesters.length - 1].semester_gpa : 0;
-    
-    return `
-You are GradeIQ AI, an intelligent academic advisor for Egyptian university students. 
-You speak ${isAr ? 'Arabic (Egyptian dialect, friendly and warm)' : 'English (friendly and encouraging)'}.
+    const lastGpa = data.semesters && data.semesters.length > 0
+      ? data.semesters[data.semesters.length - 1].semester_gpa
+      : 0;
+    const totalCredits = data.total_credits || 0;
+    const semCount = data.semesters ? data.semesters.length : 0;
 
-Student's context:
-- Cumulative GPA: ${data.cumulative_gpa} / 4.0
-- Credits: ${data.total_credit_hours}
-- Semesters: ${data.semesters.length}
-- Last Semester GPA: ${lastGpa}
-- GPA Trend: ${getTrend(data.semesters)}
-- Scale: ${data.settings.university_system}
+    return `You are GradeIQ AI, an empathetic and expert academic advisor specializing in Egyptian university students.
+Respond in ${isAr ? 'Arabic (Egyptian dialect, warm and encouraging)' : 'English (friendly, clear, and motivating)'}.
 
-Your role:
-1. Analyze their GPA explicitly.
-2. Give actionable advice to improve.
-3. Be concise (3-5 sentences max).
-4. Never invent data.
-`;
+Student Academic Profile:
+- Cumulative GPA: ${(data.cumulative_gpa || 0).toFixed(2)} / 4.0
+- Total Credits Earned: ${totalCredits}
+- Number of Semesters: ${semCount}
+- Last Semester GPA: ${lastGpa.toFixed ? lastGpa.toFixed(2) : lastGpa}
+- GPA Trend: ${getTrend(data.semesters || [])}
+- Grading System: ${data.settings?.university_system || 'delta'}
+
+Your response style:
+- Be concise but thorough (3-5 sentences typically)
+- Use bullet points for lists
+- Use **bold** for key numbers and important terms
+- Be encouraging and actionable
+- Never invent data not provided above
+- If GPA is below 2.0, be gentle but honest about urgency`;
   }
 
   async function handleSend() {
     const text = els.input.value.trim();
     if (!text) return;
 
-    // UI Updates
     els.input.value = '';
+    els.input.disabled = true;
+    els.sendBtn.disabled = true;
+    els.sendBtn.classList.add('sending');
+
     if (els.quickChips) els.quickChips.style.display = 'none';
-    
+
     addBubble(text, 'user');
     const loadingBubble = addBubble('', 'ai', true);
 
     const systemPrompt = buildSystemPrompt();
 
     const messages = [
-      ...conversationHistory,
+      { role: "system", content: systemPrompt },
+      ...conversationHistory.filter(m => m.role !== 'system'),
       { role: "user", content: text }
     ];
 
     try {
-      const apiKey = localStorage.getItem('gradeiq_gemini_key') || '';
-      
+      const apiKey = localStorage.getItem('gradeiq_groq_key') || '';
+
       if (!apiKey) {
-        throw new Error("No API Key");
+        throw new Error("NO_KEY");
       }
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `${systemPrompt}\n\nUser Question: ${text}`
-            }]
-          }]
+          model: "llama-3.3-70b-versatile",
+          messages: messages,
+          temperature: 0.7,
+          max_tokens: 512
         })
       });
 
-      const data = await response.json();
-      
-      if (data.error) {
-        throw new Error(data.error.message);
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error?.message || `HTTP ${response.status}`);
       }
 
-      const aiText = data.candidates[0].content.parts[0].text;
-      
-      const resMsg = aiText.trim();
+      const data = await response.json();
+      const resMsg = data.choices?.[0]?.message?.content?.trim() || '';
+
+      if (!resMsg) throw new Error("Empty response");
 
       // Save to history
       conversationHistory.push(
@@ -161,42 +196,47 @@ Your role:
         { role: "assistant", content: resMsg }
       );
 
-      // Enforce limits
-      if (conversationHistory.length > 20) {
-        conversationHistory = conversationHistory.slice(-20);
+      if (conversationHistory.length > 24) {
+        conversationHistory = conversationHistory.slice(-24);
       }
       localStorage.setItem('gradeiq_chat', JSON.stringify(conversationHistory));
 
-      // Update UI
       loadingBubble.remove();
       addBubble(resMsg, 'ai');
 
     } catch (error) {
       loadingBubble.remove();
       const isAr = currentLang === 'ar';
-      
-      let errorMsg = error.message === "No API Key" 
-        ? (isAr ? "برجاء إضافة API Key الخاص بك من الإعدادات لاستخدام الذكاء الاصطناعي. 🔑" : "Please add your Gemini API Key in Settings to use the AI Advisor. 🔑")
-        : (isAr ? "عذراً، حدث خطأ في الاتصال. تأكد من صحة الـ API Key. 🔄" : "Connection error. Please check your API Key. 🔄");
-        
+
+      let errorMsg;
+      if (error.message === "NO_KEY") {
+        errorMsg = isAr
+          ? `🔑 محتاج تضيف Groq API Key من صفحة **الإعدادات**.\n\nالحصول على مفتاح مجاني خلال دقيقتين من [console.groq.com](https://console.groq.com)`
+          : `🔑 Please add your **Groq API Key** in the **Settings** page to use the AI Advisor.\n\nGet a free key in 2 minutes at [console.groq.com](https://console.groq.com)`;
+      } else {
+        errorMsg = isAr
+          ? `❌ حدث خطأ: ${error.message}\n\nتأكد من صحة الـ API Key في الإعدادات.`
+          : `❌ Error: ${error.message}\n\nPlease verify your API Key in Settings.`;
+      }
+
       addBubble(errorMsg, 'ai');
+    } finally {
+      els.input.disabled = false;
+      els.sendBtn.disabled = false;
+      els.sendBtn.classList.remove('sending');
+      els.input.focus();
     }
   }
 
   // Auto-insights for Dashboard
   function displayAutoInsight(semesterGpa) {
     const isAr = currentLang === 'ar';
-    const msg = isAr 
-        ? `✨ أداء ممتاز! لقد حفظت للتو فصلاً بمعدل ${semesterGpa}. حافظ على هذا الزخم!`
-        : `✨ Great job! You just secured a ${semesterGpa} semester GPA. Keep up the momentum!`;
-    
-    Toast.show(msg, "info");
+    const msg = isAr
+      ? `✨ أداء ممتاز! لقد حفظت فصلاً بمعدل ${semesterGpa}. حافظ على هذا الزخم!`
+      : `✨ Great job! You secured a **${semesterGpa}** semester GPA. Keep the momentum!`;
+    if (typeof Toast !== 'undefined') Toast.show(msg, "info");
   }
 
   // Public API
-  return {
-    init,
-    displayAutoInsight
-  };
-
+  return { init, displayAutoInsight };
 })();
