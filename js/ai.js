@@ -160,9 +160,9 @@ Your response style:
     ];
 
     try {
-      const apiKey = localStorage.getItem('gradeiq_groq_key') || '';
+      const apiKey = typeof CONFIG !== 'undefined' ? CONFIG.GROQ_API_KEY : '';
 
-      if (!apiKey) {
+      if (!apiKey || apiKey === 'YOUR_GROQ_API_KEY_HERE') {
         throw new Error("NO_KEY");
       }
 
@@ -211,8 +211,8 @@ Your response style:
       let errorMsg;
       if (error.message === "NO_KEY") {
         errorMsg = isAr
-          ? `🔑 محتاج تضيف Groq API Key من صفحة **الإعدادات**.\n\nالحصول على مفتاح مجاني خلال دقيقتين من [console.groq.com](https://console.groq.com)`
-          : `🔑 Please add your **Groq API Key** in the **Settings** page to use the AI Advisor.\n\nGet a free key in 2 minutes at [console.groq.com](https://console.groq.com)`;
+          ? `🔑 برجاء إضافة الـ API Key الخاص بك في ملف \`js/config.js\` لتفعيل الـ AI.`
+          : `🔑 Please add your API Key in the \`js/config.js\` file to enable the AI Advisor.`;
       } else {
         errorMsg = isAr
           ? `❌ حدث خطأ: ${error.message}\n\nتأكد من صحة الـ API Key في الإعدادات.`

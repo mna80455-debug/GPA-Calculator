@@ -522,18 +522,9 @@
 
             <div class="settings-group-title" data-i18n="ai_settings">AI Advisor Settings</div>
             <div class="settings-group mb-4">
-              <div class="settings-item settings-item-col">
-                <div class="settings-item-info w-full">
-                  <i data-lucide="key" class="text-brand-secondary"></i>
-                  <div class="flex-1">
-                    <div class="settings-item-label">Groq API Key <span class="badge badge-green badge-free-label">Free</span></div>
-                    <div class="text-xs text-muted mt-1">اعمل حساب مجاني واحصل على Key من <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer" class="groq-link">console.groq.com</a></div>
-                    <input type="password" id="settings-groq-key" class="form-input mt-2 text-xs" placeholder="gsk_xxxxxxxxxxxxxxxxxxxxxxxx">
-                  </div>
-                </div>
-                <button id="btn-save-groq-key" class="btn btn-primary btn-sm w-full justify-center">
-                  <i data-lucide="save"></i> حفظ الـ API Key
-                </button>
+              <div class="card p-4 bg-black-10 text-xs text-muted">
+                <p>مستشار الذكاء الاصطناعي مهيأ الآن من خلال ملفات المشروع.</p>
+                <p class="mt-2 text-brand-secondary">AI Advisor is now configured via project files.</p>
               </div>
             </div>
 
@@ -720,6 +711,7 @@
   </style>
 
   <!-- App scripts -->
+  <script src="js/config.js"></script>
   <script src="js/translations.js"></script>
   <script type="module">
     import Firebase from './js/firebase.js';

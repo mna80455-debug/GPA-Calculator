@@ -995,20 +995,8 @@ const App = (() => {
     // Wipe
     document.getElementById('btn-nuke-data')?.addEventListener('click', handleNukeData);
 
-    // Groq API Key — Load & Save
-    const elGroqKey = document.getElementById('settings-groq-key');
-    if (elGroqKey) {
-      elGroqKey.value = localStorage.getItem('gradeiq_groq_key') || '';
-    }
-    document.getElementById('btn-save-groq-key')?.addEventListener('click', () => {
-      const key = elGroqKey?.value?.trim() || '';
-      if (!key) {
-        UI.showToast('⚠️ الصق الـ API Key أولاً ثم احفظ', 'warning');
-        return;
-      }
-      localStorage.setItem('gradeiq_groq_key', key);
-      UI.showToast('✅ تم حفظ API Key بنجاح! يمكنك استخدام AI Advisor الآن', 'success');
-    });
+    // AI configuration logic removed (handled by js/config.js)
+
 
     // Export Listeners
     document.getElementById('history-export-csv')?.addEventListener('click', () => {
