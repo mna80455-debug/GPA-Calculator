@@ -47,8 +47,3 @@
 
 ---
 
-## 📥 التشغيل المحلي | Local Setup
-
-1. قم بعمل `git clone` للمستودع.
-2. افتح ملف `index.html` في متصفحك (أو استخدم Live Server).
-3. تأكد من إعداد مفاتيح Firebase و Groq في ملف `js/config.js`.
