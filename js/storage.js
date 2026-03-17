@@ -172,6 +172,25 @@ const Storage = (() => {
       }
     },
 
+    updateSemester: async (id, updatedSem) => {
+      const data = load();
+      const index = data.semesters.findIndex(s => s.id === id);
+      if (index !== -1) {
+        data.semesters[index] = { ...data.semesters[index], ...updatedSem };
+        data.cumulative_gpa = recalcCumulative(data.semesters);
+        data.total_credits = data.semesters.reduce((acc, s) => acc + s.total_credits, 0);
+        save(data);
+
+        if (currentUser && typeof window.FirebaseModule !== 'undefined') {
+          try {
+            await window.FirebaseModule.saveSemester(currentUser.uid, data.semesters[index]);
+          } catch (e) {
+            UI.showToast("Updated offline — will sync later 📴", "warning");
+          }
+        }
+      }
+    },
+
     deleteSemester: async (id) => {
       const data = load();
       data.semesters = data.semesters.filter(s => s.id !== id);

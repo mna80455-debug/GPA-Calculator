@@ -7,6 +7,8 @@ const translations = {
     nav_simulator: "المحاكي",
     nav_ai: "مستشار الذكاء",
     nav_settings: "الإعدادات",
+    sync_online: "متصل",
+    sync_offline: "غير متصل",
 
     // Dashboard
     dashboard_title: "مرحباً بك، أيها العالِم",
@@ -18,6 +20,8 @@ const translations = {
     save_semester: "حفظ الفصل",
     add_subject: "إضافة مادة",
     subject_name: "اسم المادة",
+    semester_name: "اسم الفصل الدراسي",
+    semester_default: "الفصل الدراسي",
     grade: "الدرجة",
     credits: "الساعات",
     letter: "التقدير",
@@ -25,12 +29,20 @@ const translations = {
     semester_gpa: "معدل الفصل",
     new_cumulative: "المعدل التراكمي الجديد",
     export_csv: "تصدير Excel",
+    export_pdf: "تقرير PDF",
+    export_csv_excel: "ملف Excel/CSV",
     quick_calc_title: "حاسبة الفصل المباشرة",
     
     // Standings
+    standing_elite: "النخبة",
+    standing_distinction: "امتياز",
+    standing_scholar: "باحث مجتهد",
+    standing_good: "وضع مستقر",
+    standing_warning: "تنبيه",
+    standing_probation: "إنذار أكاديمي",
     standing_excellent: "ممتاز",
     standing_very_good: "جيد جداً",
-    standing_good: "جيد",
+    standing_good_alt: "جيد",
     standing_pass: "مقبول",
     standing_fail: "راسب",
 
@@ -108,6 +120,8 @@ const translations = {
     nav_simulator: "Simulator",
     nav_ai: "AI Advisor",
     nav_settings: "Settings",
+    sync_online: "Online",
+    sync_offline: "Offline",
 
     // Dashboard
     dashboard_title: "Welcome back, Scholar",
@@ -119,6 +133,8 @@ const translations = {
     save_semester: "Save Semester",
     add_subject: "Add Subject",
     subject_name: "Subject Name",
+    semester_name: "Semester Name",
+    semester_default: "Semester",
     grade: "Grade",
     credits: "Credits",
     letter: "Letter",
@@ -126,12 +142,20 @@ const translations = {
     semester_gpa: "Semester GPA",
     new_cumulative: "New Cumulative GPA",
     export_csv: "Export Excel",
+    export_pdf: "PDF Report",
+    export_csv_excel: "Excel/CSV",
     quick_calc_title: "Live Semester Calculator",
 
     // Standings
+    standing_elite: "Elite",
+    standing_distinction: "Distinction",
+    standing_scholar: "Scholar",
+    standing_good: "Good Standing",
+    standing_warning: "Warning",
+    standing_probation: "Probation",
     standing_excellent: "Excellent",
     standing_very_good: "Very Good",
-    standing_good: "Good",
+    standing_good_alt: "Good",
     standing_pass: "Pass",
     standing_fail: "Fail",
 
@@ -205,15 +229,18 @@ const translations = {
 let currentLang = localStorage.getItem('gradeiq_lang') || 'en';
 
 function t(key) {
-  if (!translations[currentLang] || !translations[currentLang][key]) {
-    // Try wrapping in quotes logic or fallback
+  const lang = currentLang || 'en';
+  const dict = translations[lang] || translations['en'];
+
+  if (!dict[key]) {
+    // Special logic for dynamic random quotes
     if (key === 'random_quote') {
-        const quotes = translations[currentLang].quotes;
+        const quotes = dict.quotes || translations['en'].quotes;
         return quotes[Math.floor(Math.random() * quotes.length)];
     }
     return key;
   }
-  return translations[currentLang][key];
+  return dict[key];
 }
 
 function setLanguage(lang) {
@@ -221,12 +248,22 @@ function setLanguage(lang) {
   currentLang = lang;
   localStorage.setItem('gradeiq_lang', lang);
   
+  // Sync with Storage if available
+  if (typeof Storage !== 'undefined') {
+    Storage.updateSettings({ lang: lang });
+  }
+
   // Update document direction and language attributes
   document.documentElement.lang = lang;
   document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
   
   // Re-render UI translations
   updateAllTranslations();
+
+  // Trigger App refresh if available
+  if (typeof App !== 'undefined' && App.refreshAll) {
+    App.refreshAll();
+  }
 }
 
 function toggleLanguage() {

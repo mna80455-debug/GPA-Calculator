@@ -4,6 +4,7 @@
 
 const Charts = (() => {
   let gpaJourneyChart = null;
+  let distributionChart = null;
 
   /**
    * Helper to get CSS variables
@@ -50,7 +51,9 @@ const Charts = (() => {
     const canvas = document.getElementById(canvasId);
     if (!canvas || !window.Chart) return;
 
-    if (gpaJourneyChart) gpaJourneyChart.destroy();
+    // Destroy existing instance to prevent "Canvas already in use" error
+    const existingChart = Chart.getChart(canvasId);
+    if (existingChart) existingChart.destroy();
 
     const colors = getThemeColors();
     const ctx = canvas.getContext('2d');
@@ -172,7 +175,11 @@ const Charts = (() => {
     const data = Object.values(distribution);
     const total = data.reduce((a, b) => a + b, 0);
 
-    new Chart(ctx, {
+    // Destroy existing instance to prevent "Canvas already in use" error
+    const existingChart = Chart.getChart(canvasId);
+    if (existingChart) existingChart.destroy();
+
+    distributionChart = new Chart(ctx, {
       type: 'doughnut',
       data: {
         labels: ['A grades', 'B grades', 'C grades', 'D grades', 'F grades'],

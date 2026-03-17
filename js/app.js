@@ -11,40 +11,61 @@ const App = (() => {
    * INITIALIZE (Fix 10)
    */
   function init() {
-    console.log("GradeIQ: Initializing in Guest Mode...");
-    
-    // Hide Auth Screen immediately
-    const authScreen = document.getElementById('auth-screen');
-    if (authScreen) {
-      authScreen.classList.remove('active');
-      authScreen.style.display = 'none';
-    }
-    // Proceed as Guest
-    Storage.setUser(null);
-    const data = Storage.get();
-    document.documentElement.lang = data.settings.lang || 'en';
-    document.documentElement.dir = (data.settings.lang === 'ar') ? 'rtl' : 'ltr';
-
-    UI.setTheme(data.settings.theme || 'dark');
-    UI.navigateTo(data.settings.active_section || 'dashboard');
-
-    // Initialize all components
-    initAppComponents();
-
-    // Listen for connectivity (still useful for future-proofing)
-    window.addEventListener('online', () => updateSyncStatus(true));
-    window.addEventListener('offline', () => updateSyncStatus(false));
-    updateSyncStatus(navigator.onLine);
-    
-    // Attempt background Firebase init if possible, but don't block
-    if (window.FirebaseModule) {
-      window.FirebaseModule.onAuthChange(async (user) => {
-        if (user) {
-          Storage.setUser(user);
-          updateUserProfileUI(user);
-          Storage.syncWithCloud(window.FirebaseModule);
-        }
+    try {
+      console.log("GradeIQ: Initializing App...");
+      
+      // Cleanup stuck overlays
+      document.querySelectorAll('.modal-backdrop, .sidebar-overlay').forEach(el => {
+        el.classList.remove('active');
+        if (el.id !== 'auth-screen') el.style.display = 'none'; // Only keep auth screen check if needed
       });
+      // Initialize all components first (ensures listeners are attached early)
+      initAppComponents();
+
+      // Hide Auth Screen immediately
+      const authScreen = document.getElementById('auth-screen');
+      if (authScreen) {
+        authScreen.classList.remove('active');
+        authScreen.style.display = 'none';
+      }
+      // Proceed as Guest
+      Storage.setUser(null);
+      const data = Storage.get();
+      
+      // Sync language-engine with storage settings
+      try {
+        if (typeof setLanguage === 'function') {
+          setLanguage(data.settings.lang || 'en');
+        } else {
+          document.documentElement.lang = data.settings.lang || 'en';
+          document.documentElement.dir = (data.settings.lang === 'ar') ? 'rtl' : 'ltr';
+        }
+      } catch (e) { console.error("Language init failed:", e); }
+
+      try {
+        UI.setTheme(data.settings.theme || 'dark');
+        UI.navigateTo(data.settings.active_section || 'dashboard');
+      } catch (e) { console.error("UI base init failed:", e); }
+
+
+      // Listen for connectivity (still useful for future-proofing)
+      window.addEventListener('online', () => updateSyncStatus(true));
+      window.addEventListener('offline', () => updateSyncStatus(false));
+      updateSyncStatus(navigator.onLine);
+      
+      // Attempt background Firebase init if possible, but don't block
+      if (window.FirebaseModule) {
+        window.FirebaseModule.onAuthChange(async (user) => {
+          if (user) {
+            Storage.setUser(user);
+            updateUserProfileUI(user);
+            Storage.syncWithCloud(window.FirebaseModule);
+          }
+        });
+      }
+      console.log("🚀 GradeIQ: App Initialized Successfully!");
+    } catch (err) {
+      console.error("Critical Init Error:", err);
     }
   }
 
@@ -75,18 +96,42 @@ const App = (() => {
   }
 
   function initAppComponents() {
-    if (typeof Charts !== 'undefined') Charts.applyDefaults();
-    setupNavigation();
-    initDashboard();
-    initHistory();
-    initPlanner();
-    initSimulator();
-    initAI();
-    initSettings();
-    initPremium(); // Feature set initialization
+    const components = [
+      { name: 'Charts', fn: () => { if (typeof Charts !== 'undefined') Charts.applyDefaults(); } },
+      { name: 'Navigation', fn: setupNavigation },
+      { name: 'Dashboard', fn: initDashboard },
+      { name: 'History', fn: initHistory },
+      { name: 'Planner', fn: initPlanner },
+      { name: 'Simulator', fn: initSimulator },
+      { name: 'AI', fn: initAI },
+      { name: 'Settings', fn: initSettings },
+      { name: 'Premium', fn: initPremium }
+    ];
 
+    components.forEach(c => {
+      try {
+        console.log(`- ${c.name}`);
+        c.fn();
+      } catch (err) {
+        console.error(`!! Component init failed: ${c.name}`, err);
+      }
+    });
+
+    // Final UI sanity checks
     if (typeof lucide !== 'undefined') lucide.createIcons();
     if (typeof updateAllTranslations === 'function') updateAllTranslations();
+    
+    // Ensure "Add Subject" is ALWAYS bound if possible
+    const addBtn = document.getElementById('btn-add-subject');
+    if (addBtn && !addBtn.dataset.bound) {
+        addBtn.addEventListener('click', () => {
+            console.log("Add Subject Clicked");
+            dashboardSubjects.push(createEmptySubject());
+            renderSubjectRows();
+            updateLivePreview();
+        });
+        addBtn.dataset.bound = "true";
+    }
   }
 
   function initPremium() {
@@ -283,14 +328,32 @@ const App = (() => {
    * Called by Storage.save to keep UI in sync
    */
   function refreshAll() {
-    const data = Storage.get();
-    renderDashboardStats();
-    if (document.getElementById('history').classList.contains('active')) renderHistory();
-    
-    // Refresh Premium components
-    UI.updateTicker(data);
-    if (typeof Achievements !== 'undefined') Achievements.renderShelf();
-    if (typeof Charts !== 'undefined') Charts.renderDistribution('grade-distribution-chart', data.semesters);
+    try {
+      const data = Storage.get();
+      
+      // Auto-update default semester name to current language
+      const nameInp = document.getElementById('calc-semester-name');
+      if (nameInp) {
+        const val = nameInp.value;
+        const nextNum = data.semesters.length + 1;
+        // Robust check: if value starts with any known default prefix, update it
+        const arPrefix = "الفصل الدراسي";
+        const enPrefix = "Semester";
+        if (val.startsWith(arPrefix) || val.startsWith(enPrefix) || !val) {
+          nameInp.value = `${t('semester_default')} ${nextNum}`;
+        }
+      }
+
+      renderDashboardStats();
+      if (document.getElementById('history').classList.contains('active')) renderHistory();
+      
+      // Refresh Premium components
+      UI.updateTicker(data);
+      if (typeof Achievements !== 'undefined') Achievements.renderShelf();
+      if (typeof Charts !== 'undefined') Charts.renderDistribution('grade-distribution-chart', data.semesters);
+    } catch (err) {
+      console.warn("Refresh failed silently:", err);
+    }
   }
 
   /* ==================== FIX 1: Navigation ==================== */
@@ -299,10 +362,17 @@ const App = (() => {
       link.addEventListener('click', (e) => {
         e.preventDefault();
         const route = link.getAttribute('data-route');
-        UI.navigateTo(route);
+        if (!route) return;
+        try {
+          UI.navigateTo(route);
+        } catch (err) {
+          console.error("Navigation failed:", err);
+        }
         
         // Contextual Refresh
-        if (route === 'history') renderHistory();
+        if (route === 'history') {
+          try { renderHistory(); } catch (e) { console.error("History render failed:", e); }
+        }
       });
     });
 
@@ -315,24 +385,66 @@ const App = (() => {
 
   /* ==================== FIX 2 & 3: Dashboard & Live Preview ==================== */
   function initDashboard() {
+    const data = Storage.get();
+    const nameInp = document.getElementById('calc-semester-name');
+    if (nameInp && !nameInp.value) {
+       const nextNum = data.semesters.length + 1;
+       nameInp.value = `${t('semester_default')} ${nextNum}`;
+    }
     renderDashboardStats();
 
     // Initialize with 1 subject or current temp state
-    dashboardSubjects = [createEmptySubject()];
+    if (dashboardSubjects.length === 0) {
+      dashboardSubjects = [createEmptySubject()];
+    }
     renderSubjectRows();
-
-    // Add Subject Button
-    document.getElementById('btn-add-subject')?.addEventListener('click', () => {
-      dashboardSubjects.push(createEmptySubject());
-      renderSubjectRows();
-    });
+    updateLivePreview();
 
     // Save Semester Button (Fix 4)
     document.getElementById('btn-save-semester')?.addEventListener('click', handleSaveSemester);
+
+    // Export Buttons (Dashboard)
+    document.getElementById('dashboard-export-csv')?.addEventListener('click', () => {
+      if (typeof ExportUtil !== 'undefined') ExportUtil.exportDashboardResults('csv', dashboardSubjects);
+    });
+    document.getElementById('dashboard-export-pdf')?.addEventListener('click', () => {
+      if (typeof ExportUtil !== 'undefined') ExportUtil.exportDashboardResults('pdf', dashboardSubjects);
+    });
   }
 
   function createEmptySubject() {
     return { id: Storage.generateUUID(), name: '', score: '', out_of: 100, credits: 3, category: 'general' };
+  }
+
+  function getCategoryColor(cat) {
+    const colors = {
+      general: 'var(--brand-primary)',
+      core: '#8b5cf6',
+      elective: '#ec4899',
+      lab: '#06b6d4'
+    };
+    return colors[cat] || colors.general;
+  }
+
+  function validateScore(scoreInp, outOfInp) {
+    const score = parseFloat(scoreInp.value);
+    const outOf = parseFloat(outOfInp.value);
+    if (score > outOf) {
+      scoreInp.style.color = 'var(--danger)';
+    } else {
+      scoreInp.style.color = '';
+    }
+  }
+
+  function updateSmartWarning(row, sub) {
+    // Basic implementation to avoid ReferenceError
+    const score = parseFloat(sub.score);
+    const outOf = parseFloat(sub.out_of);
+    if (!isNaN(score) && !isNaN(outOf) && score < (outOf * 0.5)) {
+      row.classList.add('warning-low-score');
+    } else {
+      row.classList.remove('warning-low-score');
+    }
   }
 
   function renderDashboardStats() {
@@ -353,11 +465,11 @@ const App = (() => {
       let label = 'Scholar';
       let color = '#2dd4bf';
       
-      if (data.cumulative_gpa >= 3.7) { label = 'Elite'; color = '#34d399'; }
-      else if (data.cumulative_gpa >= 3.4) { label = 'Distinction'; color = '#2dd4bf'; }
-      else if (data.cumulative_gpa >= 3.0) { label = 'Good Standing'; color = '#6ee7d4'; }
-      else if (data.cumulative_gpa >= 2.0) { label = 'Warning'; color = '#fbbf24'; }
-      else if (data.cumulative_gpa > 0) { label = 'Probation'; color = '#f87171'; }
+      if (data.cumulative_gpa >= 3.7) { label = t('standing_elite'); color = '#34d399'; }
+      else if (data.cumulative_gpa >= 3.4) { label = t('standing_distinction'); color = '#2dd4bf'; }
+      else if (data.cumulative_gpa >= 3.0) { label = t('standing_scholar'); color = '#6ee7d4'; }
+      else if (data.cumulative_gpa >= 2.0) { label = t('standing_good'); color = '#fbbf24'; }
+      else if (data.cumulative_gpa > 0) { label = t('standing_probation'); color = '#f87171'; }
       
       elStanding.textContent = label;
       elStanding.style.background = `${color}20`;
@@ -502,10 +614,11 @@ const App = (() => {
     if (elBar && totalCredits > 0) {
       elBar.innerHTML = '';
       const colors = { A: '#34d399', B: '#2dd4bf', C: '#fbbf24', D: '#fb923c', F: '#f87171' };
+      const validSubCount = dashboardSubjects.filter(s => !isNaN(parseFloat(s.score)) && !isNaN(parseFloat(s.out_of))).length;
       Object.entries(letterCounts).forEach(([letter, count]) => {
-        if (count > 0) {
+        if (count > 0 && validSubCount > 0) {
           const seg = document.createElement('div');
-          seg.style.width = `${(count / dashboardSubjects.filter(s => !isNaN(parseFloat(s.grade))).length) * 100}%`;
+          seg.style.width = `${(count / validSubCount) * 100}%`;
           seg.style.background = colors[letter];
           seg.style.height = '100%';
           elBar.appendChild(seg);
@@ -517,7 +630,8 @@ const App = (() => {
   /* ==================== FIX 4: Save Semester ==================== */
   function handleSaveSemester() {
     const nameInp = document.getElementById('calc-semester-name');
-    const name = nameInp?.value || "Semester " + (Storage.get().semesters.length + 1);
+    const defaultPrefix = t('semester_default');
+    const name = nameInp?.value || `${defaultPrefix} ${Storage.get().semesters.length + 1}`;
     
     // Validate
     const validSubs = dashboardSubjects.filter(s => s.name && !isNaN(parseFloat(s.score)) && !isNaN(parseFloat(s.out_of)));
@@ -574,7 +688,8 @@ const App = (() => {
     if (semGPA >= 3.5) UI.fireConfetti();
 
     // Reset Form
-    nameInp.value = "Semester " + (Storage.get().semesters.length + 1);
+    const nextNum = Storage.get().semesters.length + 1;
+    nameInp.value = `${t('semester_default')} ${nextNum}`;
     dashboardSubjects = [createEmptySubject()];
     renderSubjectRows();
     updateLivePreview();
@@ -666,6 +781,7 @@ const App = (() => {
     // B) Cards
     container.innerHTML = '';
     data.semesters.slice().reverse().forEach(sem => {
+      if (!sem || !sem.subjects) return; // Safety check
       const card = document.createElement('div');
       card.className = 'card semester-card animate-fade-in-up';
       card.innerHTML = `
@@ -674,16 +790,25 @@ const App = (() => {
             <h4 class="font-bold">${sem.name}</h4>
             <div class="text-xs text-muted">${new Date(sem.date_saved).toLocaleDateString()}</div>
           </div>
-          <div class="badge" style="background: ${Calculator.getLetterGrade(sem.semester_gpa * 25).color}20; color: ${Calculator.getLetterGrade(sem.semester_gpa * 25).color}">
-            ${sem.semester_gpa.toFixed(2)}
+          <div class="badge" style="background: ${Calculator.getLetterGrade((sem.semester_gpa || 0) * 25).color}20; color: ${Calculator.getLetterGrade((sem.semester_gpa || 0) * 25).color}">
+            ${(sem.semester_gpa || 0).toFixed(2)}
           </div>
         </div>
         <div class="text-sm text-muted mb-2">${sem.total_credits} Credits • ${sem.subjects.length} Subjects</div>
-        <button class="btn btn-ghost text-accent-red btn-sm btn-delete-sem" data-id="${sem.id}">
-          <i data-lucide="trash-2" style="width:14px"></i> Delete
-        </button>
+        <div class="flex gap-2">
+          <button class="btn btn-ghost text-brand-primary btn-sm btn-edit-sem" data-id="${sem.id}">
+            <i data-lucide="edit-3" style="width:14px"></i> ${data.settings.lang === 'ar' ? 'تعديل' : 'Edit'}
+          </button>
+          <button class="btn btn-ghost text-accent-red btn-sm btn-delete-sem" data-id="${sem.id}">
+            <i data-lucide="trash-2" style="width:14px"></i> ${data.settings.lang === 'ar' ? 'حذف' : 'Delete'}
+          </button>
+        </div>
       `;
       
+      card.querySelector('.btn-edit-sem').addEventListener('click', () => {
+        openEditSemesterModal(sem.id);
+      });
+
       card.querySelector('.btn-delete-sem').addEventListener('click', () => {
         if (confirm(data.settings.lang === 'ar' ? "هل أنت متأكد من حذف هذا الفصل؟" : "Are you sure you want to delete this semester?")) {
           Storage.deleteSemester(sem.id);
@@ -696,19 +821,19 @@ const App = (() => {
     if (typeof lucide !== 'undefined') lucide.createIcons({ nodes: container });
 
     // C) Insights
-    if (statsContainer) {
-      const best = data.semesters.reduce((a, b) => a.semester_gpa > b.semester_gpa ? a : b);
-      const worst = data.semesters.reduce((a, b) => a.semester_gpa < b.semester_gpa ? a : b);
+    if (statsContainer && data.semesters.length > 0) {
+      const best = data.semesters.reduce((a, b) => (a.semester_gpa || 0) > (b.semester_gpa || 0) ? a : b);
+      const worst = data.semesters.reduce((a, b) => (a.semester_gpa || 0) < (b.semester_gpa || 0) ? a : b);
       
       statsContainer.innerHTML = `
         <div class="space-y-3">
           <div class="flex justify-between items-center text-sm p-2 bg-black-10 rounded">
-            <span>أفضل فصل</span>
-            <b class="text-accent-green">${best.semester_gpa.toFixed(2)} (${best.name})</b>
+            <span>${data.settings.lang === 'ar' ? 'أفضل فصل' : 'Best Semester'}</span>
+            <b class="text-accent-green">${(best.semester_gpa || 0).toFixed(2)} (${best.name})</b>
           </div>
           <div class="flex justify-between items-center text-sm p-2 bg-black-10 rounded">
-            <span>أقل فصل</span>
-            <b class="text-accent-red">${worst.semester_gpa.toFixed(2)} (${worst.name})</b>
+            <span>${data.settings.lang === 'ar' ? 'أقل فصل' : 'Lowest Semester'}</span>
+            <b class="text-accent-red">${(worst.semester_gpa || 0).toFixed(2)} (${worst.name})</b>
           </div>
         </div>
       `;
@@ -716,6 +841,146 @@ const App = (() => {
 
     // D) Heatmap
     if (typeof Charts !== 'undefined') Charts.renderHeatmap('history-heatmap', data.semesters);
+  }
+
+  /* ==================== Semester Editing Logic ==================== */
+  let currentEditingSemesterId = null;
+  let editingSubjects = [];
+
+  function openEditSemesterModal(id) {
+    const data = Storage.get();
+    const sem = data.semesters.find(s => s.id === id);
+    if (!sem) return;
+
+    currentEditingSemesterId = id;
+    editingSubjects = JSON.parse(JSON.stringify(sem.subjects)); // Deep copy
+
+    const modal = document.getElementById('edit-semester-modal');
+    const nameInp = document.getElementById('edit-sem-name');
+    
+    if (nameInp) nameInp.value = sem.name;
+    
+    renderEditSubjects();
+    UI.openModal('edit-semester-modal');
+
+    // Add Subject Button (Modal)
+    const btnEditAdd = document.getElementById('btn-edit-add-subject');
+    if (btnEditAdd) {
+      btnEditAdd.onclick = () => {
+        editingSubjects.push(createEmptySubject());
+        renderEditSubjects();
+      };
+    }
+
+    // Save Button (Modal)
+    const btnSaveEdit = document.getElementById('btn-save-edit-semester');
+    if (btnSaveEdit) btnSaveEdit.onclick = handleUpdateSemester;
+  }
+
+  function renderEditSubjects() {
+    const container = document.getElementById('edit-sem-subjects-list');
+    if (!container) return;
+
+    container.innerHTML = '';
+    editingSubjects.forEach((sub, index) => {
+      const row = document.createElement('div');
+      row.className = 'subject-row';
+      row.innerHTML = `
+        <div class="subject-main-info">
+          <input type="text" class="form-input sub-name" placeholder="اسم المادة" value="${sub.name || ''}">
+        </div>
+        <div class="score-group">
+          <input type="number" class="form-input sub-score" placeholder="الدرجة" value="${sub.score}" min="0">
+          <span class="mx-1">/</span>
+          <input type="number" class="form-input sub-out-of" placeholder="من" value="${sub.out_of}" min="1">
+        </div>
+        <div class="sub-calc-meta">
+          <span class="percentage-badge">${sub.percentage ? sub.percentage + '%' : '—'}</span>
+          <select class="form-input sub-credits">
+            <option value="1" ${sub.credits == 1 ? 'selected' : ''}>1</option>
+            <option value="2" ${sub.credits == 2 ? 'selected' : ''}>2</option>
+            <option value="3" ${sub.credits == 3 ? 'selected' : ''}>3</option>
+            <option value="4" ${sub.credits == 4 ? 'selected' : ''}>4</option>
+          </select>
+        </div>
+        <span class="grade-badge" style="background: ${sub.color || 'var(--bg-card)'}!important; color: #fff">${sub.letter || '—'}</span>
+        <button class="btn-icon text-accent-red sub-remove">
+          <i data-lucide="x"></i>
+        </button>
+      `;
+
+      // Update calculations live
+      const updateRow = () => {
+        const score = parseFloat(row.querySelector('.sub-score').value);
+        const outOf = parseFloat(row.querySelector('.sub-out-of').value);
+        if (!isNaN(score) && !isNaN(outOf) && outOf > 0) {
+          const percentage = (score / outOf) * 100;
+          const info = Calculator.getLetterGrade(percentage);
+          sub.score = score;
+          sub.out_of = outOf;
+          sub.percentage = percentage.toFixed(1);
+          sub.letter = info.letter;
+          sub.color = info.color;
+          sub.points = info.points;
+          
+          row.querySelector('.grade-badge').textContent = sub.letter;
+          row.querySelector('.grade-badge').style.background = sub.color;
+          row.querySelector('.percentage-badge').textContent = sub.percentage + '%';
+        }
+      };
+
+      const nameInp = row.querySelector('.sub-name');
+      const scoreInp = row.querySelector('.sub-score');
+      const outOfInp = row.querySelector('.sub-out-of');
+      const creditInp = row.querySelector('.sub-credits');
+      const removeBtn = row.querySelector('.sub-remove');
+
+      if (nameInp) nameInp.oninput = (e) => sub.name = e.target.value;
+      if (scoreInp) scoreInp.oninput = updateRow;
+      if (outOfInp) outOfInp.oninput = updateRow;
+      if (creditInp) creditInp.onchange = (e) => sub.credits = parseInt(e.target.value);
+      if (removeBtn) {
+        removeBtn.onclick = () => {
+          editingSubjects.splice(index, 1);
+          renderEditSubjects();
+        };
+      }
+
+      container.appendChild(row);
+    });
+    if (typeof lucide !== 'undefined') lucide.createIcons({ nodes: container });
+  }
+
+  async function handleUpdateSemester() {
+    const name = document.getElementById('edit-sem-name')?.value || "Semester";
+    const validSubs = editingSubjects.filter(s => s.name && !isNaN(parseFloat(s.score)));
+
+    if (validSubs.length === 0) {
+      UI.showToast("يرجى إضافة مادة واحدة على الأقل", "error");
+      return;
+    }
+
+    let totalPoints = 0, totalCredits = 0;
+    const subjects = validSubs.map(s => {
+      const percentage = (s.score / s.out_of) * 100;
+      const info = Calculator.getLetterGrade(percentage);
+      totalPoints += (info.points * s.credits);
+      totalCredits += s.credits;
+      return { ...s, gpa_points: info.points, percentage: parseFloat(percentage.toFixed(1)), letter: info.letter };
+    });
+
+    const semGPA = totalCredits > 0 ? (totalPoints / totalCredits) : 0;
+
+    await Storage.updateSemester(currentEditingSemesterId, {
+      name: name,
+      subjects: subjects,
+      semester_gpa: semGPA,
+      total_credits: totalCredits
+    });
+
+    UI.showToast("✅ تم تحديث الفصل بنجاح", "success");
+    UI.closeModal('edit-semester-modal');
+    renderHistory();
   }
 
   // Remove the redundant renderHistoryChart local function as it's now handled by Charts module
@@ -1024,20 +1289,22 @@ const App = (() => {
        });
     });
 
-    // Language Toggle
-    const btnLang = document.querySelector('.lang-toggle');
-    if (btnLang) {
-      btnLang.addEventListener('click', () => {
-         const data = Storage.get();
-         const newLang = (data.settings.lang === 'en') ? 'ar' : 'en';
-         Storage.updateSettings({ lang: newLang });
-         window.location.reload(); 
-      });
-    }
+    // Language Toggle (Settings)
+    document.getElementById('settings-lang-toggle')?.addEventListener('click', () => {
+      if (typeof toggleLanguage === 'function') {
+        toggleLanguage();
+      } else {
+        const current = Storage.get().settings.lang || 'en';
+        const next = current === 'en' ? 'ar' : 'en';
+        setLanguage(next);
+      }
+    });
   }
 
   function renderSettingsUI() {
     const data = Storage.get();
+    
+    // University Systems
     document.querySelectorAll('.system-card').forEach(card => {
        if (card.getAttribute('data-system') === data.settings.university) {
           card.classList.add('active');
@@ -1045,11 +1312,36 @@ const App = (() => {
           card.classList.remove('active');
        }
     });
+
+    // Language Badge
+    const langBadge = document.getElementById('settings-lang-badge');
+    if (langBadge) {
+      langBadge.textContent = data.settings.lang === 'ar' ? 'العربية' : 'English';
+    }
+
+    // Theme Badge & Label
+    const themeBadge = document.getElementById('theme-badge');
+    const themeName = document.getElementById('settings-theme-name');
+    const isAr = data.settings.lang === 'ar';
+    const isDark = data.settings.theme === 'dark';
+
+    if (themeBadge) {
+      themeBadge.textContent = isDark ? (isAr ? 'داكن' : 'Dark') : (isAr ? 'فاتح' : 'Light');
+    }
+    if (themeName) {
+      themeName.textContent = isDark ? (isAr ? 'الفاتح' : 'Light') : (isAr ? 'الداكن' : 'Dark');
+    }
   }
 
-  return { init, refreshAll };
+  return { init, refreshAll, renderHistory, requestAIGradePrediction };
 
 })();
 
-// Bootstrap
-document.addEventListener('DOMContentLoaded', App.init);
+// Bootstrap (Immediate/Safe version for file:// protocol)
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', App.init);
+} else {
+    // If DOM already loaded (e.g. script at bottom of page)
+    console.log("DOM already loaded, initializing immediately...");
+    App.init();
+}

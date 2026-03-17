@@ -3,7 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GradeIQ</title>
+  <title>GradeIQ — المستشار الأكاديمي الذكي</title>
+  
+  <script>
+    // Storage Safety (Fix for file:// protocol restricted environments)
+    try {
+      localStorage.getItem('test');
+    } catch (e) {
+      const store = {};
+      window.localStorage = {
+        getItem: (k) => store[k] || null,
+        setItem: (k, v) => { store[k] = v; },
+        removeItem: (k) => { delete store[k]; },
+        clear: () => { for(let k in store) delete store[k]; }
+      };
+    }
+  </script>
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,7 +27,16 @@
 
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script>if(typeof Chart === 'undefined') window.Chart = { defaults: { font: {}, plugins: { tooltip: {}, legend: { labels: {} } } } };</script>
+  <script>
+    if(typeof Chart === 'undefined') {
+       window.Chart = class { 
+          constructor() { console.warn("Chart.js not loaded. Using stub."); }
+          destroy() {}
+          static getChart() { return null; }
+          static defaults = { font: {}, plugins: { tooltip: {}, legend: { labels: {} } } };
+       };
+    }
+  </script>
   
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -67,9 +91,7 @@
           <h1 class="logo-text">GradeIQ</h1>
         </div>
         
-        <button class="theme-toggle-sidebar" id="sidebar-theme-toggle" aria-label="Toggle Theme" title="Toggle Theme">
-          <i data-lucide="moon"></i>
-        </button>
+
       </div>
       
       <nav class="sidebar-nav">
@@ -225,7 +247,7 @@
             </div>
             
             <div class="mb-3">
-              <input type="text" id="calc-semester-name" class="form-input text-lg font-bold bg-transparent border-transparent p-0" value="Semester 1" aria-label="Semester Name" title="Semester Name" placeholder="Semester Name">
+              <input type="text" id="calc-semester-name" class="form-input text-lg font-bold bg-transparent border-transparent p-0" aria-label="Semester Name" title="Semester Name" placeholder="Semester Name" data-i18n-placeholder="semester_name">
             </div>
 
             <!-- Header Row -->
@@ -270,14 +292,19 @@
                 <i data-lucide="save" class="mr-2"></i> <span data-i18n="save_semester">Save Semester</span>
               </button>
               
-              <div class="flex gap-2 mt-2">
-                <button class="btn btn-ghost flex-1 text-xs py-1" id="dashboard-export-csv" title="Download Excel/CSV">
-                  <i data-lucide="file-spreadsheet" class="w-3 h-3"></i> CSV
-                </button>
-                <button class="btn btn-ghost flex-1 text-xs py-1" id="dashboard-export-pdf" title="Download PDF">
-                  <i data-lucide="file-text" class="w-3 h-3"></i> PDF
-                </button>
+              <div class="export-options mt-4 pt-4 border-t border-subtle">
+                <div class="flex gap-3">
+                  <button class="btn btn-ghost flex-1 text-[11px] h-9 gap-2 group" id="dashboard-export-pdf">
+                    <i data-lucide="file-text" class="w-4 h-4 text-brand-secondary group-hover:scale-110 transition-transform"></i>
+                    <span class="font-bold underline decoration-brand-secondary/30 underline-offset-4" data-i18n="export_pdf">PDF Report</span>
+                  </button>
+                  <button class="btn btn-ghost flex-1 text-[11px] h-9 gap-2 group" id="dashboard-export-csv">
+                    <i data-lucide="file-spreadsheet" class="w-4 h-4 text-brand-primary group-hover:scale-110 transition-transform"></i>
+                    <span class="font-bold underline decoration-brand-primary/30 underline-offset-4" data-i18n="export_csv_excel">CSV/Excel</span>
+                  </button>
+                </div>
               </div>
+
             </div>
 
             <!-- Grade Distribution (Feature 5) -->
@@ -520,16 +547,17 @@
               </div>
             </div>
 
-            <div class="settings-group-title" data-i18n="ai_settings">AI Advisor Settings</div>
-            <div class="settings-group mb-4">
-              <div class="card p-4 bg-black-10 text-xs text-muted">
-                <p>مستشار الذكاء الاصطناعي مهيأ الآن من خلال ملفات المشروع.</p>
-                <p class="mt-2 text-brand-secondary">AI Advisor is now configured via project files.</p>
-              </div>
-            </div>
+
 
             <div class="settings-group-title" data-i18n="appearance">Appearance</div>
             <div class="settings-group mb-4">
+              <div class="settings-item cursor-pointer" id="settings-lang-toggle">
+                <div class="settings-item-info">
+                  <i data-lucide="globe"></i>
+                  <div class="settings-item-label" data-i18n="language">Language</div>
+                </div>
+                <div class="theme-badge" id="settings-lang-badge" style="background: rgba(45, 212, 191, 0.15)">AR | EN</div>
+              </div>
               <div class="settings-item cursor-pointer" id="settings-theme-toggle">
                 <div class="settings-item-info">
                   <i data-lucide="palette"></i>
@@ -684,8 +712,7 @@
       </div>
     </div>
   </div>
-
-  <!-- ==================== TEMPLATES MODAL (Feature 2) ==================== -->
+  <!-- Templates Modal -->
   <div id="templates-modal" class="modal-backdrop">
     <div class="modal-content max-w-md">
       <div class="flex justify-between items-center mb-6">
@@ -693,12 +720,46 @@
         <button class="btn-icon" onclick="UI.closeModal('templates-modal')" title="Close Modal"><i data-lucide="x"></i></button>
       </div>
       <p class="text-xs text-muted mb-4">Select a template to pre-fill your semester subjects. You can also save your own custom templates.</p>
+      <div class="space-y-3 mb-6 max-h-60 overflow-y-auto pr-2" id="templates-list-container"></div>
+      <button onclick="UI.closeModal('templates-modal')" class="btn btn-secondary w-full">Close</button>
+    </div>
+  </div>
+
+  <!-- ==================== EDIT SEMESTER MODAL ==================== -->
+  <div id="edit-semester-modal" class="modal-backdrop">
+    <div class="modal-content max-w-2xl">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-xl font-bold"><i data-lucide="edit-3"></i> <span data-i18n="edit_semester_title">تعديل الفصل الدراسي</span></h2>
+        <button class="btn-icon" onclick="UI.closeModal('edit-semester-modal')" title="Close Modal"><i data-lucide="x"></i></button>
+      </div>
       
-      <div class="space-y-3 mb-6 max-h-60 overflow-y-auto pr-2" id="templates-list-container">
-        <!-- Templates injected here -->
+      <div class="mb-4">
+        <label class="form-label mb-1" data-i18n="semester_name">اسم الفصل</label>
+        <input type="text" id="edit-sem-name" class="form-input w-full font-bold">
       </div>
 
-      <button onclick="UI.closeModal('templates-modal')" class="btn btn-secondary w-full">Close</button>
+      <div class="grid text-xs text-muted mb-2 px-1 text-center subject-grid-headers">
+        <div class="text-left" data-i18n="subject_name">Subject</div>
+        <div data-i18n="score_out_of">Score / Out Of</div>
+        <div data-i18n="credits_pct">Credits / %</div>
+        <div data-i18n="letter">Letter</div>
+        <div></div>
+      </div>
+
+      <div id="edit-sem-subjects-list" class="subjects-container mb-6 space-y-2 max-h-80 overflow-y-auto pr-2">
+        <!-- Subjects injected here -->
+      </div>
+      
+      <button class="btn btn-secondary w-full border-dashed mb-6" id="btn-edit-add-subject">
+        <i data-lucide="plus"></i> <span data-i18n="add_subject">Add Subject</span>
+      </button>
+
+      <div class="flex gap-3 pt-4 border-t border-subtle">
+        <button class="btn btn-secondary flex-1" onclick="UI.closeModal('edit-semester-modal')" data-i18n="cancel_btn">Cancel</button>
+        <button class="btn btn-primary flex-1" id="btn-save-edit-semester">
+          <i data-lucide="check"></i> <span data-i18n="save_changes">Save Changes</span>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -711,22 +772,30 @@
   </style>
 
   <!-- App scripts -->
-  <script src="js/config.js"></script>
-  <script src="js/translations.js"></script>
-  <script type="module">
-    import Firebase from './js/firebase.js';
-    window.FirebaseModule = Firebase;
+  <script src="js/config.js" onload="console.log('✅ config.js loaded')" onerror="console.error('❌ config.js failed')"></script>
+  <script src="js/translations.js" onload="console.log('✅ translations.js loaded')" onerror="console.error('❌ translations.js failed')"></script>
+  <script src="js/firebase.js" onload="console.log('✅ firebase.js loaded')" onerror="console.error('❌ firebase.js failed')"></script>
+  <script>
+    if (typeof window.FirebaseModule === 'undefined') {
+      window.FirebaseModule = {
+        onAuthChange: () => {},
+        login: () => Promise.reject("Firebase not loaded"),
+        logout: () => {},
+        syncWithCloud: () => {}
+      };
+    }
   </script>
-  <script src="js/storage.js"></script>
-  <script src="js/calculator.js"></script>
-  <script src="js/achievements.js"></script>
-  <script src="js/templates.js"></script>
-  <script src="js/ai.js"></script>
-  <script src="js/export.js"></script>
-  <script src="js/ui.js"></script>
-  <script src="js/charts.js"></script>
-  <script src="js/planner.js"></script>
-  <script src="js/simulator.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/storage.js" onload="console.log('✅ storage.js loaded')" onerror="console.error('❌ storage.js failed')"></script>
+  <script src="js/calculator.js" onload="console.log('✅ calculator.js loaded')" onerror="console.error('❌ calculator.js failed')"></script>
+  <script src="js/achievements.js" onload="console.log('✅ achievements.js loaded')" onerror="console.error('❌ achievements.js failed')"></script>
+  <script src="js/templates.js" onload="console.log('✅ templates.js loaded')" onerror="console.error('❌ templates.js failed')"></script>
+  <script src="js/ai.js" onload="console.log('✅ ai.js loaded')" onerror="console.error('❌ ai.js failed')"></script>
+  <script src="js/export.js" onload="console.log('✅ export.js loaded')" onerror="console.error('❌ export.js failed')"></script>
+  <script src="js/ui.js" onload="console.log('✅ ui.js loaded')" onerror="console.error('❌ ui.js failed')"></script>
+  <script src="js/charts.js" onload="console.log('✅ charts.js loaded')" onerror="console.error('❌ charts.js failed')"></script>
+  <script src="js/planner.js" onload="console.log('✅ planner.js loaded')" onerror="console.error('❌ planner.js failed')"></script>
+  <script src="js/simulator.js" onload="console.log('✅ simulator.js loaded')" onerror="console.error('❌ simulator.js failed')"></script>
+  <script src="js/app.js" onload="console.log('✅ app.js loaded')" onerror="console.error('❌ app.js failed')"></script>
+
 </body>
 </html>

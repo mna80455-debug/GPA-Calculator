@@ -217,14 +217,19 @@ const UI = (() => {
     const gpa = data.cumulative_gpa;
     const hours = data.total_credits;
     
-    facts.push(`📊 معدلك التراكمي: ${gpa.toFixed(2)}`);
-    if (gpa >= 3.0) facts.push(`🎯 أنت في وضع ممتاز! استمر`);
-    else facts.push(`🎯 تحتاج 3.8 في الفصل القادم للوصول لـ 3.5`);
+    const isAr = document.documentElement.lang === 'ar';
+    
+    facts.push(isAr ? `📊 معدلك التراكمي: ${gpa.toFixed(2)}` : `📊 Cumulative GPA: ${gpa.toFixed(2)}`);
+    if (gpa >= 3.0) {
+      facts.push(isAr ? `🎯 أنت في وضع ممتاز! استمر` : `🎯 You are doing great! Keep it up`);
+    } else {
+      facts.push(isAr ? `🎯 تحتاج 3.8 في الفصل القادم للوصول لـ 3.5` : `🎯 You need a 3.8 next semester to reach 3.5`);
+    }
     
     const bestSem = data.semesters.reduce((a, b) => a.semester_gpa > b.semester_gpa ? a : b);
-    facts.push(`🏆 أفضل فصل: ${bestSem.name}`);
-    facts.push(`⏳ أتممت ${hours} ساعة دراسية`);
-    facts.push(`💎 الأوسمة المفتوحة: ${Achievements.getUnlocked().length} / 7`);
+    facts.push(isAr ? `🏆 أفضل فصل: ${bestSem.name}` : `🏆 Top Semester: ${bestSem.name}`);
+    facts.push(isAr ? `⏳ أتممت ${hours} ساعة دراسية` : `⏳ Completed ${hours} credit hours`);
+    facts.push(isAr ? `💎 الأوسمة المفتوحة: ${Achievements.getUnlocked().length} / 7` : `💎 Badges Unlocked: ${Achievements.getUnlocked().length} / 7`);
 
     tickerContent.innerHTML = facts.map(f => `<span class="ticker-item">${f}</span>`).join('') + facts.map(f => `<span class="ticker-item">${f}</span>`).join(''); // Duplicate for infinite scroll
   }
